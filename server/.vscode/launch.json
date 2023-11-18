@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "GameServer",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build Sln",
+            "program": "${workspaceFolder}/artifacts/bin/GameServer/debug/GameServer.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/executer/GameServer",
+            "console": "externalTerminal",
+            "stopAtEntry": false
+        }
+    ]
+}

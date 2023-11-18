@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <ClientLibraryPath>../../../client/Assets/Plugins</ClientLibraryPath>
+  </PropertyGroup>
+
+  <Target Name="CopyDLLs" AfterTargets="Build">
+    <Message Text="Copy to client $(TargetDir)$(ProjectName).dll -> $(ClientLibraryPath)" Importance="High" />
+    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll;$(TargetDir)$(ProjectName).pdb" DestinationFolder="$(ClientLibraryPath)" />
+  </Target>
+
+</Project>

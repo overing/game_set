@@ -1,0 +1,21 @@
+<linker>
+	<assembly fullname="GameCore" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Configuration.Abstractions" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Configuration.Binder" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Configuration.FileExtensions" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Configuration" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.DependencyInjection" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.DependencyInjection.Abstractions" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.FileProviders.Abstractions" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.FileProviders.Physical" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.FileSystemGlobbing" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Hosting.Abstractions" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Hosting" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Logging.Abstractions" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Logging" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Options.ConfigurationExtensions" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Options" preserve="all"/>
+	<assembly fullname="Microsoft.Extensions.Primitives" preserve="all"/>
+	<assembly fullname="System.Text.Json" preserve="all"/>
+</linker>
