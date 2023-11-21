@@ -6,7 +6,7 @@ using System.Text.Json.Serialization.Metadata;
 
 namespace GameCore
 {
-    sealed class ProtocolJsonTypeInfoResolver : DefaultJsonTypeInfoResolver
+    public sealed class ProtocolJsonTypeInfoResolver : DefaultJsonTypeInfoResolver
     {
         static readonly Type BaseType = typeof(ProtocolBase);
         static readonly JsonPolymorphismOptions JsonPolymorphismOptions;

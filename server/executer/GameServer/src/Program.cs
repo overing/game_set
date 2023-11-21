@@ -24,6 +24,6 @@ app.UseWebSockets(new()
     KeepAliveInterval = TimeSpan.FromMinutes(10)
 });
 
-app.Use(WebSocketProtocolSocketSession.HandleWebSocketAsync);
+app.Use(WebSocketProtocolSession.HandleWebSocketAsync);
 
 await app.RunAsync();

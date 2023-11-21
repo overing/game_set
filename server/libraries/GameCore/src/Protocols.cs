@@ -17,4 +17,14 @@ namespace GameCore
         public ClientLoginError Error { get; set; }
         public string Name { get; set; }
     }
+
+    public sealed class S2C_Heartbeat : ProtocolBase
+    {
+        
+    }
+
+    public sealed class C2S_Heartbeat : ProtocolBase
+    {
+        
+    }
 }

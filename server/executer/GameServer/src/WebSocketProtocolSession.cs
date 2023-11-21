@@ -4,24 +4,30 @@ using GameCore;
 
 namespace GameServer;
 
-public sealed class WebSocketProtocolSocketSession(
-    ILogger<WebSocketProtocolSocketSession> _logger,
+public sealed class WebSocketProtocolSession(
+    ILogger<WebSocketProtocolSession> _logger,
     WebSocket _webSocket,
-    IProtocolHandlerDispatcher _dispatcher)
-    : IProtocolSession
+    IProtocolHandlerDispatcher _dispatcher,
+    IClusterClient _clusterClient)
+    : IProtocolSession, IGrainsProtocolSession
 {
     readonly MemoryStream _receiveBuffer = new();
     readonly MemoryStream _sendBuffer = new();
+
+    IGrainsProtocolSession? _reference;
+    public IGrainsProtocolSession GrainReference
+        => _reference ??= _clusterClient.CreateObjectReference<IGrainsProtocolSession>(this);
 
     public static async Task HandleWebSocketAsync(HttpContext context, Func<Task> _)
     {
         if (context.WebSockets.IsWebSocketRequest)
         {
             var services = context.RequestServices;
-            var logger = services.GetRequiredService<ILogger<WebSocketProtocolSocketSession>>();
+            var logger = services.GetRequiredService<ILogger<WebSocketProtocolSession>>();
             var dispatcher = services.GetRequiredService<IProtocolHandlerDispatcher>();
+            var client = services.GetRequiredService<IClusterClient>();
             using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-            var session = new WebSocketProtocolSocketSession(logger, webSocket, dispatcher);
+            var session = new WebSocketProtocolSession(logger, webSocket, dispatcher, client);
             await session.HandleReceiveAsync(context.RequestAborted);
         }
         else
@@ -64,4 +70,6 @@ public sealed class WebSocketProtocolSocketSession(
         var data = _sendBuffer.ToArray();
         await _webSocket.SendAsync(data, WebSocketMessageType.Text, endOfMessage: true, cancellationToken: cancellationToken);
     }
+
+    public ValueTask SendAsync(ProtocolBase protocol) => SendAsync(protocol, default);
 }

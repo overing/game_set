@@ -23,8 +23,9 @@ public sealed class Main : MonoBehaviour
     {
         var services = new System.ComponentModel.Design.ServiceContainer();
         services.AddService(typeof(Main), this);
-        services.AddService(typeof(IProtocolSession), (p, _) => _session);
+        services.AddService(typeof(IProtocolSession), (_, _) => _session);
         services.AddService(typeof(ProtocolHandlerBase<S2C_ClientLogin>), (p, _) => new S2C_ClientLoginHandler(p));
+        services.AddService(typeof(ProtocolHandlerBase<S2C_Heartbeat>), (p, _) => new S2C_HeartbeatHandler(p));
         _services = services;
         _dispatcher = new DefaultProtocolHandlerDispatcher(services);
     }
@@ -108,10 +109,24 @@ public sealed class S2C_ClientLoginHandler : ProtocolHandlerBase<S2C_ClientLogin
 
     protected override ValueTask HandlerAsync(IProtocolSession session, S2C_ClientLogin protocol, CancellationToken cancellationToken)
     {
+        Debug.LogWarning(nameof(S2C_ClientLoginHandler));
         if (_provider.GetService(typeof(Main)) is Main main && main != null)
             main.PlayerName = protocol.Name;
         else
             Debug.LogWarning(new { session, protocol, protocol.Name });
         return default;
+    }
+}
+
+public sealed class S2C_HeartbeatHandler : ProtocolHandlerBase<S2C_Heartbeat>
+{
+    IServiceProvider _provider;
+
+    public S2C_HeartbeatHandler(IServiceProvider provider) => _provider = provider;
+
+    protected override ValueTask HandlerAsync(IProtocolSession session, S2C_Heartbeat protocol, CancellationToken cancellationToken)
+    {
+        Debug.LogWarning(nameof(S2C_HeartbeatHandler));
+        return session.SendAsync(new C2S_Heartbeat(), cancellationToken);
     }
 }
