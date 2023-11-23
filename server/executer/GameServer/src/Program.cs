@@ -15,7 +15,7 @@ builder.Host
     });
 
 builder.Services
-    .AddProtocolHandler();
+    .AddProtocolHandler<WebSocketProtocolSession>();
 
 var app = builder.Build();
 

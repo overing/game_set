@@ -15,9 +15,11 @@ namespace WebSocketProtocolSession
         readonly System.IO.MemoryStream _sendBUffer;
         WebSocket _webSocket;
         bool _disposed;
-        IProtocolHandlerDispatcher _dispatcher;
+        IProtocolHandlerDispatcher<IWebSocketProtocolSession> _dispatcher;
 
-        public WebSocketSharpProtocolSession(string url, IProtocolHandlerDispatcher dispatcher)
+        public bool IsConnected { get; private set; }
+
+        public WebSocketSharpProtocolSession(string url, IProtocolHandlerDispatcher<IWebSocketProtocolSession> dispatcher)
         {
             _url = url;
             _sendBUffer = new();
@@ -52,6 +54,7 @@ namespace WebSocketProtocolSession
             webSocket.OnMessage += OnWebSocketMessage;
             webSocket.OnError += OnWebSocketError;
             _webSocket = webSocket;
+            IsConnected = true;
 
             void onConnectOpen(object sender, EventArgs args) => tcs.SetResult(true);
 
@@ -73,7 +76,8 @@ namespace WebSocketProtocolSession
 
         void OnWebSocketMessage(object sender, MessageEventArgs args)
         {
-            var protocol = JsonSerializer.Deserialize<ProtocolBase>(args.Data, ProtocolBase.JsonSerializerOptions);
+            var options = ProtocolJsonSerialization.Options;
+            var protocol = JsonSerializer.Deserialize<ProtocolBase>(args.Data, options);
             _ = _dispatcher.DispatchAsync(this, protocol, default);
         }
 
@@ -88,7 +92,7 @@ namespace WebSocketProtocolSession
         {
             var buffer = _sendBUffer;
             buffer.SetLength(0);
-            var options = ProtocolBase.JsonSerializerOptions;
+            var options = ProtocolJsonSerialization.Options;
             await JsonSerializer.SerializeAsync(buffer, protocol, options, cancellationToken);
             buffer.Position = 0;
 
@@ -106,6 +110,7 @@ namespace WebSocketProtocolSession
             {
                 if (_webSocket is WebSocket webSocket)
                 {
+                    IsConnected = false;
                     webSocket.OnError -= OnWebSocketError;
                     webSocket.OnMessage -= OnWebSocketMessage;
                     webSocket.OnClose -= OnWebSocketClose;

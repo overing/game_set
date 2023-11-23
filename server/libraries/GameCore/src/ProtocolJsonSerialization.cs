@@ -6,6 +6,15 @@ using System.Text.Json.Serialization.Metadata;
 
 namespace GameCore
 {
+    public static class ProtocolJsonSerialization
+    {
+        public static readonly JsonSerializerOptions Options = new JsonSerializerOptions
+        {
+            IgnoreReadOnlyProperties = true,
+            TypeInfoResolver = new ProtocolJsonTypeInfoResolver(),
+        };
+    }
+
     public sealed class ProtocolJsonTypeInfoResolver : DefaultJsonTypeInfoResolver
     {
         static readonly Type BaseType = typeof(ProtocolBase);

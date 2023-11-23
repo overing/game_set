@@ -7,7 +7,7 @@ namespace GameServer;
 public sealed class WebSocketProtocolSession(
     ILogger<WebSocketProtocolSession> _logger,
     WebSocket _webSocket,
-    IProtocolHandlerDispatcher _dispatcher,
+    IProtocolHandlerDispatcher<WebSocketProtocolSession> _dispatcher,
     IClusterClient _clusterClient)
     : IProtocolSession, IGrainsProtocolSession
 {
@@ -24,7 +24,7 @@ public sealed class WebSocketProtocolSession(
         {
             var services = context.RequestServices;
             var logger = services.GetRequiredService<ILogger<WebSocketProtocolSession>>();
-            var dispatcher = services.GetRequiredService<IProtocolHandlerDispatcher>();
+            var dispatcher = services.GetRequiredService<IProtocolHandlerDispatcher<WebSocketProtocolSession>>();
             var client = services.GetRequiredService<IClusterClient>();
             using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
             var session = new WebSocketProtocolSession(logger, webSocket, dispatcher, client);
@@ -53,7 +53,7 @@ public sealed class WebSocketProtocolSession(
 
             _receiveBuffer.Position = 0;
 
-            var options = ProtocolBase.JsonSerializerOptions;
+            var options = ProtocolJsonSerialization.Options;
             var protocol = await JsonSerializer.DeserializeAsync<ProtocolBase>(_receiveBuffer, options, cancellationToken);
             if (protocol is not null)
                 await _dispatcher.DispatchAsync(this, protocol, cancellationToken);
@@ -64,7 +64,7 @@ public sealed class WebSocketProtocolSession(
     public async ValueTask SendAsync(ProtocolBase protocol, CancellationToken cancellationToken)
     {
         _sendBuffer.SetLength(0);
-        var options = ProtocolBase.JsonSerializerOptions;
+        var options = ProtocolJsonSerialization.Options;
         await JsonSerializer.SerializeAsync(_sendBuffer, protocol, options, cancellationToken);
         _sendBuffer.Position = 0;
         var data = _sendBuffer.ToArray();

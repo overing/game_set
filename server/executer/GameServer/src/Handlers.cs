@@ -13,15 +13,14 @@ public sealed class S2C_ClientLoginConverter : ConverterBase<S2C_ClientLogin> { 
 sealed class C2S_ClientLoginHandler(
     ILogger<C2S_ClientLoginHandler> _logger,
     IClusterClient _clusterClient)
-    : ProtocolHandlerBase<C2S_ClientLogin>
+    : ProtocolHandlerBase<WebSocketProtocolSession, C2S_ClientLogin>
 {
-    protected override async ValueTask HandlerAsync(IProtocolSession session, C2S_ClientLogin protocol, CancellationToken cancellationToken)
+    protected override async ValueTask HandlerAsync(WebSocketProtocolSession session, C2S_ClientLogin protocol, CancellationToken cancellationToken)
     {
         _logger.LogDebug(nameof(HandlerAsync));
 
-        var webSocketSession = (WebSocketProtocolSession)session;
         var player = _clusterClient.GetGrain<IPlayer>(1);
-        var send = await player.LoginAsync(webSocketSession.GrainReference, protocol);
+        var send = await player.LoginAsync(session.GrainReference, protocol);
         await session.SendAsync(send, cancellationToken);
     }
 }
@@ -35,15 +34,14 @@ public sealed class S2C_HeartbeatConverter : ConverterBase<S2C_Heartbeat> { }
 sealed class C2S_HeartbeatHandler(
     ILogger<C2S_HeartbeatHandler> _logger,
     IClusterClient _clusterClient)
-    : ProtocolHandlerBase<C2S_Heartbeat>
+    : ProtocolHandlerBase<WebSocketProtocolSession, C2S_Heartbeat>
 {
-    protected override async ValueTask HandlerAsync(IProtocolSession session, C2S_Heartbeat protocol, CancellationToken cancellationToken)
+    protected override async ValueTask HandlerAsync(WebSocketProtocolSession session, C2S_Heartbeat protocol, CancellationToken cancellationToken)
     {
         _logger.LogDebug(nameof(HandlerAsync));
 
-        var webSocketSession = (WebSocketProtocolSession)session;
         var player = _clusterClient.GetGrain<IPlayer>(1);
-        await player.HeartbeatAsync(webSocketSession.GrainReference, protocol);
+        await player.HeartbeatAsync(session.GrainReference, protocol);
     }
 }
 
@@ -60,7 +58,7 @@ public interface IPlayer : IGrainWithIntegerKey
 
 public sealed class Player(ILogger<Player> _logger) : Grain, IPlayer
 {
-    readonly ObserverManager<IGrainsProtocolSession> _session = new(TimeSpan.FromSeconds(30), _logger);
+    readonly ObserverManager<IGrainsProtocolSession> _sessions = new(TimeSpan.FromSeconds(30), _logger);
 
     CancellationTokenSource? _heartbeatCancellationTokenSource;
 
@@ -69,7 +67,7 @@ public sealed class Player(ILogger<Player> _logger) : Grain, IPlayer
         await Task.Yield();
         if (receive.Account == "overing")
         {
-            _session.Subscribe(session, session);
+            _sessions.Subscribe(session, session);
 
             _heartbeatCancellationTokenSource ??= new();
             _ = CheckHeartbeatAsync(_heartbeatCancellationTokenSource.Token);
@@ -80,7 +78,7 @@ public sealed class Player(ILogger<Player> _logger) : Grain, IPlayer
 
     public ValueTask HeartbeatAsync(IGrainsProtocolSession session, C2S_Heartbeat receive)
     {
-        _session.Subscribe(session, session);
+        _sessions.Subscribe(session, session);
         DelayDeactivation(TimeSpan.FromMinutes(10));
         return ValueTask.CompletedTask;
     }
@@ -96,7 +94,7 @@ public sealed class Player(ILogger<Player> _logger) : Grain, IPlayer
         while (!cancellationToken.IsCancellationRequested)
         {
             await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
-            _session.Notify(s => s.SendAsync(new S2C_Heartbeat()));
+            _sessions.Notify(s => s.SendAsync(new S2C_Heartbeat()));
         }
     }
 }

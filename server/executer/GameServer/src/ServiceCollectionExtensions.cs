@@ -4,9 +4,10 @@ namespace GameServer;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddProtocolHandler(this IServiceCollection collection)
+    public static IServiceCollection AddProtocolHandler<TSession>(this IServiceCollection collection)
+        where TSession : IProtocolSession
     {
-        var baseType = typeof(IProtocolHandler);
+        var baseType = typeof(IProtocolHandler<TSession>);
         var query = typeof(Program).Assembly.GetTypes()
             .Where(baseType.IsAssignableFrom)
             .Where(t => !t.IsAbstract)
@@ -14,7 +15,7 @@ public static class ServiceCollectionExtensions
             .Select(t => new ServiceDescriptor(t.BaseType!, t, ServiceLifetime.Transient));
         foreach (var descriptor in query)
             collection.Add(descriptor);
-        collection.AddSingleton<IProtocolHandlerDispatcher, DefaultProtocolHandlerDispatcher>();
+        collection.AddSingleton<IProtocolHandlerDispatcher<TSession>, DefaultProtocolHandlerDispatcher<TSession>>();
         return collection;
     }
 }

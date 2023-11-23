@@ -6,6 +6,7 @@ namespace WebSocketProtocolSession
 {
     public interface IWebSocketProtocolSession : IProtocolSession, IDisposable
     {
+        bool IsConnected { get; }
         ValueTask ConnectAsync();
     }
 }

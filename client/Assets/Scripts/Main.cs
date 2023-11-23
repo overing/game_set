@@ -1,7 +1,9 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using GameCore;
+using Microsoft.Extensions.DependencyInjection;
 using UnityEngine;
 using WebSocketProtocolSession;
 
@@ -11,8 +13,6 @@ public sealed class Main : MonoBehaviour
     static void OnLoadMethod() => DontDestroyOnLoad(new GameObject(nameof(Main), typeof(Main)));
 
     IServiceProvider _services;
-    IProtocolHandlerDispatcher _dispatcher;
-    IWebSocketProtocolSession _session;
     string _url = "ws://127.0.0.1:8763";
     string _account = "overing";
     bool _guiInitialized;
@@ -21,13 +21,22 @@ public sealed class Main : MonoBehaviour
 
     void Awake()
     {
-        var services = new System.ComponentModel.Design.ServiceContainer();
-        services.AddService(typeof(Main), this);
-        services.AddService(typeof(IProtocolSession), (_, _) => _session);
-        services.AddService(typeof(ProtocolHandlerBase<S2C_ClientLogin>), (p, _) => new S2C_ClientLoginHandler(p));
-        services.AddService(typeof(ProtocolHandlerBase<S2C_Heartbeat>), (p, _) => new S2C_HeartbeatHandler(p));
-        _services = services;
-        _dispatcher = new DefaultProtocolHandlerDispatcher(services);
+        _services = new ServiceCollection()
+            .AddSingleton(this)
+            .AddSingleton(p =>
+            {
+                var url = _url;
+                var dispatcher = p.GetRequiredService<IProtocolHandlerDispatcher<IWebSocketProtocolSession>>();
+                IWebSocketProtocolSession session;
+                if (Application.isEditor || Application.platform != RuntimePlatform.WebGLPlayer)
+                    session = new WebSocketSharpProtocolSession(url, dispatcher);
+                else
+                    session = new JsWebSocketProtocolSession(url, dispatcher);
+                return session;
+            })
+            .AddProtocolHandler<IWebSocketProtocolSession>()
+            .AddSingleton<IProtocolHandlerDispatcher<IWebSocketProtocolSession>, DefaultProtocolHandlerDispatcher<IWebSocketProtocolSession>>()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
     }
 
     void OnGUI()
@@ -42,7 +51,8 @@ public sealed class Main : MonoBehaviour
 
         GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(Screen.width), GUILayout.Height(Screen.height));
 
-        if (_session == null)
+        var session = _services.GetRequiredService<IWebSocketProtocolSession>();
+        if (!session.IsConnected)
         {
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             GUILayout.Label("Url", GUILayout.Width(192));
@@ -70,11 +80,7 @@ public sealed class Main : MonoBehaviour
 
     async ValueTask LoginAsync(string url, string account)
     {
-        IWebSocketProtocolSession session;
-        if (Application.isEditor || Application.platform != RuntimePlatform.WebGLPlayer)
-            session = new WebSocketSharpProtocolSession(url, _dispatcher);
-        else
-            session = new JsWebSocketProtocolSession(url, _dispatcher);
+        var session = _services.GetRequiredService<IWebSocketProtocolSession>();
         try
         {
             await session.ConnectAsync();
@@ -85,29 +91,26 @@ public sealed class Main : MonoBehaviour
             Debug.LogException(ex);
             return;
         }
-
-        _session = session;
-
         await session.SendAsync(new C2S_ClientLogin { Account = account }, destroyCancellationToken);
     }
 
     void OnDestroy()
     {
-        if (_session is IWebSocketProtocolSession session)
+        if (_services is IDisposable disposable)
         {
-            session.Dispose();
-            _session = null;
+            disposable.Dispose();
+            _services = null;
         }
     }
 }
 
-public sealed class S2C_ClientLoginHandler : ProtocolHandlerBase<S2C_ClientLogin>
+public sealed class S2C_ClientLoginHandler : ProtocolHandlerBase<IWebSocketProtocolSession, S2C_ClientLogin>
 {
     IServiceProvider _provider;
 
     public S2C_ClientLoginHandler(IServiceProvider provider) => _provider = provider;
 
-    protected override ValueTask HandlerAsync(IProtocolSession session, S2C_ClientLogin protocol, CancellationToken cancellationToken)
+    protected override ValueTask HandlerAsync(IWebSocketProtocolSession session, S2C_ClientLogin protocol, CancellationToken cancellationToken)
     {
         Debug.LogWarning(nameof(S2C_ClientLoginHandler));
         if (_provider.GetService(typeof(Main)) is Main main && main != null)
@@ -118,15 +121,33 @@ public sealed class S2C_ClientLoginHandler : ProtocolHandlerBase<S2C_ClientLogin
     }
 }
 
-public sealed class S2C_HeartbeatHandler : ProtocolHandlerBase<S2C_Heartbeat>
+public sealed class S2C_HeartbeatHandler : ProtocolHandlerBase<IWebSocketProtocolSession, S2C_Heartbeat>
 {
     IServiceProvider _provider;
 
     public S2C_HeartbeatHandler(IServiceProvider provider) => _provider = provider;
 
-    protected override ValueTask HandlerAsync(IProtocolSession session, S2C_Heartbeat protocol, CancellationToken cancellationToken)
+    protected override ValueTask HandlerAsync(IWebSocketProtocolSession session, S2C_Heartbeat protocol, CancellationToken cancellationToken)
     {
         Debug.LogWarning(nameof(S2C_HeartbeatHandler));
         return session.SendAsync(new C2S_Heartbeat(), cancellationToken);
+    }
+}
+
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddProtocolHandler<TSession>(this IServiceCollection collection)
+        where TSession : IProtocolSession
+    {
+        var baseType = typeof(IProtocolHandler<TSession>);
+        var query = typeof(Main).Assembly.GetTypes()
+            .Where(baseType.IsAssignableFrom)
+            .Where(t => !t.IsAbstract)
+            .Where(t => t.BaseType != null)
+            .Select(t => new ServiceDescriptor(t.BaseType!, t, ServiceLifetime.Transient));
+        foreach (var descriptor in query)
+            collection.Add(descriptor);
+        collection.AddSingleton<IProtocolHandlerDispatcher<TSession>, DefaultProtocolHandlerDispatcher<TSession>>();
+        return collection;
     }
 }
